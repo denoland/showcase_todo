@@ -58,6 +58,6 @@ export async function writeItems(
       op.set(["list", listId, input.id], item);
     }
   });
-
+  op.set(["list_updated", listId], true);
   await op.commit();
 }

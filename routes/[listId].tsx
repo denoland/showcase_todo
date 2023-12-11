@@ -1,7 +1,7 @@
 import { Head } from "$fresh/runtime.ts";
 import { Handlers } from "$fresh/server.ts";
 import TodoListView from "../islands/TodoListView.tsx";
-import { inputSchema, loadList, writeItems } from "../services/database.ts";
+import { db, inputSchema, loadList, writeItems } from "../services/database.ts";
 import { TodoList } from "../shared/api.ts";
 
 export const handler: Handlers = {
@@ -11,26 +11,30 @@ export const handler: Handlers = {
     const url = new URL(req.url);
 
     if (accept === "text/event-stream") {
-      const bc = new BroadcastChannel(`list/${listId}`);
+      const stream = db.watch([["list_updated", listId]]).getReader();
       const body = new ReadableStream({
-        start(controller) {
-          bc.addEventListener("message", async () => {
+        async start(controller) {
+          console.log(
+            `Opened stream for list ${listId} remote ${
+              JSON.stringify(ctx.remoteAddr)
+            }`,
+          );
+          while (true) {
             try {
+              if ((await stream.read()).done) {
+                return;
+              }
+
               const data = await loadList(listId, "strong");
               const chunk = `data: ${JSON.stringify(data)}\n\n`;
               controller.enqueue(new TextEncoder().encode(chunk));
             } catch (e) {
               console.error(`Error refreshing list ${listId}`, e);
             }
-          });
-          console.log(
-            `Opened stream for list ${listId} remote ${
-              JSON.stringify(ctx.remoteAddr)
-            }`,
-          );
+          }
         },
         cancel() {
-          bc.close();
+          stream.cancel();
           console.log(
             `Closed stream for list ${listId} remote ${
               JSON.stringify(ctx.remoteAddr)
@@ -59,9 +63,6 @@ export const handler: Handlers = {
     const listId = ctx.params.listId;
     const body = inputSchema.parse(await req.json());
     await writeItems(listId, body);
-
-    const bc = new BroadcastChannel(`list/${listId}`);
-    bc.postMessage("" + Date.now());
     return Response.json({ ok: true });
   },
 };

@@ -6,8 +6,7 @@ Collaborative todo-list app built with Deno and Fresh.
 
 ## Features
 
-- Global persistent data using Deno KV
-- Real-time collaboration using BroadcastChannel
+- Global persistent data and real-time collaboration using Deno KV
 - Sends updates from server to clients using EventSource (server-sent events)
 
 This project is hosted on Deno Deploy:
