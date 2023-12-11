@@ -13,27 +13,25 @@ export const handler: Handlers = {
     if (accept === "text/event-stream") {
       const stream = db.watch([["list_updated", listId]]).getReader();
       const body = new ReadableStream({
-        start(controller) {
-          (async () => {
-            while (true) {
-              try {
-                if ((await stream.read()).done) {
-                  return;
-                }
-
-                const data = await loadList(listId, "strong");
-                const chunk = `data: ${JSON.stringify(data)}\n\n`;
-                controller.enqueue(new TextEncoder().encode(chunk));
-              } catch (e) {
-                console.error(`Error refreshing list ${listId}`, e);
-              }
-            }
-          })();
+        async start(controller) {
           console.log(
             `Opened stream for list ${listId} remote ${
               JSON.stringify(ctx.remoteAddr)
             }`,
           );
+          while (true) {
+            try {
+              if ((await stream.read()).done) {
+                return;
+              }
+
+              const data = await loadList(listId, "strong");
+              const chunk = `data: ${JSON.stringify(data)}\n\n`;
+              controller.enqueue(new TextEncoder().encode(chunk));
+            } catch (e) {
+              console.error(`Error refreshing list ${listId}`, e);
+            }
+          }
         },
         cancel() {
           stream.cancel();
